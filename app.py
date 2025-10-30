@@ -142,6 +142,16 @@ def health():
 def index():
     return render_template('index.html')
 
+@app.route('/debug')
+def debug():
+    try:
+        count = UploadedFile.query.count()
+        counter = FileCounter.query.first()
+        db_url = app.config['SQLALCHEMY_DATABASE_URI']
+        return f"Files in DB: {count}<br>Counter: {counter.last_id if counter else 'None'}<br>DB URL: {db_url[:50]}..."
+    except Exception as e:
+        return f"Debug error: {e}"
+
 @app.route('/upload-csv', methods=['POST'])
 def upload_csv():
     file = request.files.get('csv_file')
