@@ -154,9 +154,9 @@ def debug():
         count = UploadedFile.query.count()
         counter = FileCounter.query.first()
         db_url = app.config['SQLALCHEMY_DATABASE_URI']
-        return f"Files in DB: {count}<br>Counter: {counter.last_id if counter else 'None'}<br>DB URL: {db_url[:50]}...<br><a href='/create-tables'>Create Tables</a>"
+        return f"Files in DB: {count}<br>Counter: {counter.last_id if counter else 'None'}<br>DB URL: {db_url[:50]}...<br><a href='/create-tables'>Create Tables</a> | <a href='/reset-tables'>Reset Tables</a>"
     except Exception as e:
-        return f"Debug error: {e}<br><a href='/create-tables'>Create Tables</a>"
+        return f"Debug error: {e}<br><a href='/create-tables'>Create Tables</a> | <a href='/reset-tables'>Reset Tables</a>"
 
 @app.route('/create-tables')
 def create_tables():
@@ -166,6 +166,17 @@ def create_tables():
             return "✅ Tables created successfully! <a href='/debug'>Back to Debug</a>"
     except Exception as e:
         return f"❌ Failed to create tables: {e} <a href='/debug'>Back to Debug</a>"
+
+@app.route('/reset-tables')
+def reset_tables():
+    try:
+        with app.app_context():
+            # Drop and recreate tables
+            db.drop_all()
+            db.create_all()
+            return "✅ Tables reset successfully! <a href='/debug'>Back to Debug</a>"
+    except Exception as e:
+        return f"❌ Failed to reset tables: {e} <a href='/debug'>Back to Debug</a>"
 
 @app.route('/upload-csv', methods=['POST'])
 def upload_csv():
