@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold">Admin Dashboard</h1>
+            <div class="space-x-4">
+                <a href="/" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Home</a>
+                <a href="/admin/logout" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</a>
+            </div>
+        </div>
+
+        <!-- Database Status -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Database Status</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-blue-50 p-4 rounded">
+                    <div class="text-2xl font-bold text-blue-600">{{ count }}</div>
+                    <div class="text-sm text-gray-600">Total Files</div>
+                </div>
+                <div class="bg-green-50 p-4 rounded">
+                    <div class="text-2xl font-bold text-green-600">{{ counter.last_id if counter else 'None' }}</div>
+                    <div class="text-sm text-gray-600">Current Counter</div>
+                </div>
+                <div class="bg-purple-50 p-4 rounded">
+                    <div class="text-sm font-mono text-purple-600">{{ db_url }}...</div>
+                    <div class="text-sm text-gray-600">Database URL</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Database Management -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Database Management</h2>
+            <div class="space-x-4">
+                <a href="/admin/create-tables" 
+                   class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                   onclick="return confirm('Create database tables?')">
+                    Create Tables
+                </a>
+                <a href="/admin/reset-tables" 
+                   class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                   onclick="return confirm('This will delete all data! Are you sure?')">
+                    Reset Tables
+                </a>
+            </div>
+        </div>
+
+        <!-- Files List -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="p-6 border-b">
+                <h2 class="text-xl font-semibold">Uploaded Files</h2>
+            </div>
+            
+            {% if error %}
+            <div class="p-6">
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                    Error: {{ error }}
+                </div>
+            </div>
+            {% elif files %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Original File</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">RAW File</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for file in files %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 text-sm font-medium">{{ file.file_id }}</td>
+                            <td class="px-6 py-4 text-sm">{{ file.original_filename }}</td>
+                            <td class="px-6 py-4 text-sm font-mono">{{ file.raw_filename }}</td>
+                            <td class="px-6 py-4 text-sm">{{ file.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td class="px-6 py-4 text-sm space-x-2">
+                                <a href="/admin/download/{{ file.id }}/csv" 
+                                   class="bg-green-500 text-white px-3 py-1 rounded text-xs hover:bg-green-600">
+                                    CSV
+                                </a>
+                                <a href="/admin/download/{{ file.id }}/raw" 
+                                   class="bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600">
+                                    RAW
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-6 text-center text-gray-500">
+                No files uploaded yet.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

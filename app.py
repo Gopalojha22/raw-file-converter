@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, send_from_directory
+from flask import Flask, request, render_template, send_from_directory, session, redirect, url_for
 import os
 import csv
 import re
@@ -8,8 +8,10 @@ from datetime import datetime
 from dateutil import parser
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
+from functools import wraps
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Database configuration
 # Use PostgreSQL from Railway environment variables
@@ -144,39 +146,97 @@ def get_file_counter():
 def health():
     return "OK", 200
 
+@app.route('/debug')
+def debug():
+    return redirect(url_for('admin_login'))
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/debug')
-def debug():
+# Admin authentication decorator
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('admin_logged_in'):
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        password = request.form.get('password')
+        if password == os.environ.get('ADMIN_PASSWORD', 'admin123'):
+            session['admin_logged_in'] = True
+            return redirect(url_for('admin_dashboard'))
+        else:
+            return render_template('admin_login.html', error='Invalid password')
+    return render_template('admin_login.html')
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin_logged_in', None)
+    return redirect(url_for('index'))
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
     try:
-        count = UploadedFile.query.count()
+        files = UploadedFile.query.order_by(UploadedFile.created_at.desc()).all()
+        count = len(files)
         counter = FileCounter.query.first()
         db_url = app.config['SQLALCHEMY_DATABASE_URI']
-        return f"Files in DB: {count}<br>Counter: {counter.last_id if counter else 'None'}<br>DB URL: {db_url[:50]}...<br><a href='/create-tables'>Create Tables</a> | <a href='/reset-tables'>Reset Tables</a>"
+        return render_template('admin.html', 
+                             files=files, 
+                             count=count, 
+                             counter=counter, 
+                             db_url=db_url[:50])
     except Exception as e:
-        return f"Debug error: {e}<br><a href='/create-tables'>Create Tables</a> | <a href='/reset-tables'>Reset Tables</a>"
+        return render_template('admin.html', error=str(e))
 
-@app.route('/create-tables')
+@app.route('/admin/create-tables')
+@admin_required
 def create_tables():
     try:
         with app.app_context():
             db.create_all()
-            return "✅ Tables created successfully! <a href='/debug'>Back to Debug</a>"
+            return redirect(url_for('admin_dashboard'))
     except Exception as e:
-        return f"❌ Failed to create tables: {e} <a href='/debug'>Back to Debug</a>"
+        return f"❌ Failed to create tables: {e}"
 
-@app.route('/reset-tables')
+@app.route('/admin/reset-tables')
+@admin_required
 def reset_tables():
     try:
         with app.app_context():
-            # Drop and recreate tables
             db.drop_all()
             db.create_all()
-            return "✅ Tables reset successfully! <a href='/debug'>Back to Debug</a>"
+            return redirect(url_for('admin_dashboard'))
     except Exception as e:
-        return f"❌ Failed to reset tables: {e} <a href='/debug'>Back to Debug</a>"
+        return f"❌ Failed to reset tables: {e}"
+
+@app.route('/admin/download/<int:file_id>/<file_type>')
+@admin_required
+def admin_download(file_id, file_type):
+    try:
+        db_file = UploadedFile.query.get_or_404(file_id)
+        from flask import Response
+        
+        if file_type == 'csv':
+            return Response(
+                db_file.csv_file_data,
+                mimetype='text/csv',
+                headers={'Content-Disposition': f'attachment; filename={db_file.original_filename}'}
+            )
+        elif file_type == 'raw':
+            return Response(
+                db_file.raw_file_data,
+                mimetype='text/plain',
+                headers={'Content-Disposition': f'attachment; filename={db_file.raw_filename}'}
+            )
+    except Exception as e:
+        return f"Download failed: {e}"
 
 @app.route('/upload-csv', methods=['POST'])
 def upload_csv():
