@@ -70,33 +70,73 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(CSV_FOLDER, exist_ok=True)
 os.makedirs(RECONVERTED_FOLDER, exist_ok=True)
 
-# Initialize database
-with app.app_context():
-    db.create_all()
+# Initialize database (non-blocking)
+def init_db():
+    try:
+        with app.app_context():
+            db.create_all()
+            print("Database initialized successfully")
+    except Exception as e:
+        print(f"Database initialization failed: {e}")
+        print("App will continue with filesystem fallback")
+
+# Initialize database in background
+import threading
+threading.Thread(target=init_db, daemon=True).start()
 
 def get_next_file_id():
     """
     Returns an incrementing integer starting from 1.
-    Persists the last used value in database.
-    Resets daily.
+    Fallback to file-based counter if database fails.
     """
-    today = datetime.now().strftime('%Y-%m-%d')
-    
-    counter = FileCounter.query.first()
-    if not counter:
-        counter = FileCounter(last_id=1, last_date=today)
-        db.session.add(counter)
+    try:
+        today = datetime.now().strftime('%Y-%m-%d')
+        counter = FileCounter.query.first()
+        if not counter:
+            counter = FileCounter(last_id=1, last_date=today)
+            db.session.add(counter)
+            db.session.commit()
+            return 1
+        
+        if counter.last_date != today:
+            counter.last_id = 1
+            counter.last_date = today
+        else:
+            counter.last_id += 1
+        
         db.session.commit()
+        return counter.last_id
+    except Exception:
+        # Fallback to file-based counter
+        return get_file_counter()
+
+def get_file_counter():
+    """Fallback file-based counter"""
+    today = datetime.now().strftime('%Y-%m-%d')
+    if not os.path.exists(COUNTER_FILE):
+        data = {"last_id": 1, "last_date": today}
+        with open(COUNTER_FILE, 'w') as f:
+            json.dump(data, f)
         return 1
     
-    if counter.last_date != today:
-        counter.last_id = 1
-        counter.last_date = today
-    else:
-        counter.last_id += 1
+    with open(COUNTER_FILE, 'r') as f:
+        data = json.load(f)
     
-    db.session.commit()
-    return counter.last_id
+    if data.get("last_date") != today:
+        last_id = 1
+        data["last_date"] = today
+    else:
+        last_id = data.get("last_id", 0) + 1
+    
+    data["last_id"] = last_id
+    with open(COUNTER_FILE, 'w') as f:
+        json.dump(data, f)
+    
+    return last_id
+
+@app.route('/health')
+def health():
+    return "OK", 200
 
 @app.route('/')
 def index():
@@ -112,10 +152,13 @@ def upload_csv():
     csv_content = file.read().decode('utf-8')
     file_hash = hashlib.sha256(csv_content.encode()).hexdigest()
     
-    # Check for duplicate
-    existing_file = UploadedFile.query.filter_by(file_hash=file_hash).first()
-    if existing_file:
-        return f"File already exists: <a href='/download/reconverted/{existing_file.raw_filename}'>{existing_file.raw_filename}</a>"
+    # Check for duplicate (skip if database unavailable)
+    try:
+        existing_file = UploadedFile.query.filter_by(file_hash=file_hash).first()
+        if existing_file:
+            return f"File already exists: <a href='/download/reconverted/{existing_file.raw_filename}'>{existing_file.raw_filename}</a>"
+    except Exception:
+        pass  # Continue without duplicate check
     
     # Parse CSV
     reader = csv.reader(csv_content.splitlines())
@@ -231,17 +274,21 @@ def upload_csv():
     output_lines.append("")  # trailing newline
     raw_content = '\n'.join(output_lines)
     
-    # Save to database
-    uploaded_file = UploadedFile(
-        file_id=file_id,
-        original_filename=file.filename,
-        csv_content=csv_content,
-        raw_content=raw_content,
-        raw_filename=filename,
-        file_hash=file_hash
-    )
-    db.session.add(uploaded_file)
-    db.session.commit()
+    # Save to database (optional)
+    try:
+        uploaded_file = UploadedFile(
+            file_id=file_id,
+            original_filename=file.filename,
+            csv_content=csv_content,
+            raw_content=raw_content,
+            raw_filename=filename,
+            file_hash=file_hash
+        )
+        db.session.add(uploaded_file)
+        db.session.commit()
+    except Exception as e:
+        print(f"Database save failed: {e}")
+        # Continue with filesystem only
     
     # Also save to filesystem for backward compatibility
     csv_path = os.path.join(CSV_FOLDER, f"{file_id}.csv")
