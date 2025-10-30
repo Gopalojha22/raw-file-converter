@@ -313,24 +313,27 @@ def upload_csv():
 @app.route('/download/<folder>/<filename>')
 def download_file(folder, filename):
     # Try database first
-    if folder == 'reconverted':
-        db_file = UploadedFile.query.filter_by(raw_filename=filename).first()
-        if db_file:
-            from flask import Response
-            return Response(
-                db_file.raw_content,
-                mimetype='text/plain',
-                headers={'Content-Disposition': f'attachment; filename={filename}'}
-            )
-    elif folder == 'csv':
-        db_file = UploadedFile.query.filter_by(file_id=filename.replace('.csv', '')).first()
-        if db_file:
-            from flask import Response
-            return Response(
-                db_file.csv_content,
-                mimetype='text/csv',
-                headers={'Content-Disposition': f'attachment; filename={filename}'}
-            )
+    try:
+        if folder == 'reconverted':
+            db_file = UploadedFile.query.filter_by(raw_filename=filename).first()
+            if db_file:
+                from flask import Response
+                return Response(
+                    db_file.raw_content,
+                    mimetype='text/plain',
+                    headers={'Content-Disposition': f'attachment; filename={filename}'}
+                )
+        elif folder == 'csv':
+            db_file = UploadedFile.query.filter_by(file_id=filename.replace('.csv', '')).first()
+            if db_file:
+                from flask import Response
+                return Response(
+                    db_file.csv_content,
+                    mimetype='text/csv',
+                    headers={'Content-Disposition': f'attachment; filename={filename}'}
+                )
+    except:
+        pass  # Fallback to filesystem
     
     # Fallback to filesystem
     folder_path = {
