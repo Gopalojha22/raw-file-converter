@@ -149,6 +149,10 @@ def upload_csv():
             except Exception:
                 return f"Invalid Dt format: {row_dict['Dt']}"
 
+    # --- Get file ID first ---
+    file_id_int = get_next_file_id()
+    file_id = str(file_id_int).zfill(5)
+    
     # --- Naming and header per requirements ---
     todays_date = datetime.now().strftime('%d%m%Y')
 
@@ -228,9 +232,6 @@ def upload_csv():
     raw_content = '\n'.join(output_lines)
     
     # Save to database
-    file_id_int = get_next_file_id()
-    file_id = str(file_id_int).zfill(5)
-    
     uploaded_file = UploadedFile(
         file_id=file_id,
         original_filename=file.filename,
@@ -281,15 +282,6 @@ def download_file(folder, filename):
     }.get(folder)
     
     return send_from_directory(folder_path, filename, as_attachment=True)
-
-@app.route('/files')
-def list_files():
-    files = UploadedFile.query.order_by(UploadedFile.created_at.desc()).all()
-    html = '<h2>All Files</h2><table border="1"><tr><th>ID</th><th>Original</th><th>RAW File</th><th>Created</th><th>Download</th></tr>'
-    for f in files:
-        html += f'<tr><td>{f.file_id}</td><td>{f.original_filename}</td><td>{f.raw_filename}</td><td>{f.created_at}</td><td><a href="/download/reconverted/{f.raw_filename}">Download</a></td></tr>'
-    html += '</table><br><a href="/">Back to Upload</a>'
-    return html
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
