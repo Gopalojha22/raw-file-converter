@@ -12,7 +12,13 @@ from sqlalchemy import text
 app = Flask(__name__)
 
 # Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///local.db')
+# Use PostgreSQL from Railway environment variables
+db_url = os.environ.get('DATABASE_URL')
+if not db_url:
+    # Construct from individual environment variables
+    db_url = f"postgresql://{os.environ.get('POSTGRES_USER', 'postgres')}:{os.environ.get('POSTGRES_PASSWORD', '')}@{os.environ.get('PGHOST', 'localhost')}:{os.environ.get('PGPORT', '5432')}/{os.environ.get('POSTGRES_DB', 'railway')}"
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
