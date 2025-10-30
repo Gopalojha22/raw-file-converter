@@ -148,9 +148,18 @@ def debug():
         count = UploadedFile.query.count()
         counter = FileCounter.query.first()
         db_url = app.config['SQLALCHEMY_DATABASE_URI']
-        return f"Files in DB: {count}<br>Counter: {counter.last_id if counter else 'None'}<br>DB URL: {db_url[:50]}..."
+        return f"Files in DB: {count}<br>Counter: {counter.last_id if counter else 'None'}<br>DB URL: {db_url[:50]}...<br><a href='/create-tables'>Create Tables</a>"
     except Exception as e:
-        return f"Debug error: {e}"
+        return f"Debug error: {e}<br><a href='/create-tables'>Create Tables</a>"
+
+@app.route('/create-tables')
+def create_tables():
+    try:
+        with app.app_context():
+            db.create_all()
+            return "✅ Tables created successfully! <a href='/debug'>Back to Debug</a>"
+    except Exception as e:
+        return f"❌ Failed to create tables: {e} <a href='/debug'>Back to Debug</a>"
 
 @app.route('/upload-csv', methods=['POST'])
 def upload_csv():
