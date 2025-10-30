@@ -65,8 +65,8 @@ class UploadedFile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     file_id = db.Column(db.String(10))
     original_filename = db.Column(db.String(255))
-    csv_content = db.Column(db.Text)
-    raw_content = db.Column(db.Text)
+    csv_file_data = db.Column(db.LargeBinary)  # Store CSV as binary
+    raw_file_data = db.Column(db.LargeBinary)  # Store RAW as binary
     raw_filename = db.Column(db.String(255))
     file_hash = db.Column(db.String(64))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -173,9 +173,10 @@ def upload_csv():
     if not file:
         return "No file uploaded."
 
-    # Read CSV content
-    csv_content = file.read().decode('utf-8')
-    file_hash = hashlib.sha256(csv_content.encode()).hexdigest()
+    # Read CSV as binary
+    csv_binary = file.read()
+    file_hash = hashlib.sha256(csv_binary).hexdigest()
+    csv_content = csv_binary.decode('utf-8')  # For processing only
     
     # Check for duplicate (skip if database unavailable)
     try:
@@ -304,8 +305,8 @@ def upload_csv():
         uploaded_file = UploadedFile(
             file_id=file_id,
             original_filename=file.filename,
-            csv_content=csv_content,
-            raw_content=raw_content,
+            csv_file_data=csv_binary,  # Store as binary
+            raw_file_data=raw_content.encode('utf-8'),  # Store as binary
             raw_filename=filename,
             file_hash=file_hash
         )
@@ -334,7 +335,7 @@ def download_file(folder, filename):
             if db_file:
                 from flask import Response
                 return Response(
-                    db_file.raw_content,
+                    db_file.raw_file_data,  # Return binary data
                     mimetype='text/plain',
                     headers={'Content-Disposition': f'attachment; filename={filename}'}
                 )
@@ -343,7 +344,7 @@ def download_file(folder, filename):
             if db_file:
                 from flask import Response
                 return Response(
-                    db_file.csv_content,
+                    db_file.csv_file_data,  # Return binary data
                     mimetype='text/csv',
                     headers={'Content-Disposition': f'attachment; filename={filename}'}
                 )
