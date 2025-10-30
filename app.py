@@ -72,7 +72,11 @@ os.makedirs(RECONVERTED_FOLDER, exist_ok=True)
 
 # Initialize database
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+        print(f"Database initialized: {app.config['SQLALCHEMY_DATABASE_URI']}")
+    except Exception as e:
+        print(f"Database initialization error: {e}")
 
 def get_next_file_id():
     """
@@ -82,25 +86,40 @@ def get_next_file_id():
     """
     today = datetime.now().strftime('%Y-%m-%d')
     
-    counter = FileCounter.query.first()
-    if not counter:
-        counter = FileCounter(last_id=1, last_date=today)
-        db.session.add(counter)
+    try:
+        counter = FileCounter.query.first()
+        if not counter:
+            counter = FileCounter(last_id=1, last_date=today)
+            db.session.add(counter)
+            db.session.commit()
+            return 1
+        
+        if counter.last_date != today:
+            counter.last_id = 1
+            counter.last_date = today
+        else:
+            counter.last_id += 1
+        
         db.session.commit()
+        return counter.last_id
+    except Exception as e:
+        db.session.rollback()
+        print(f"Counter error: {e}")
         return 1
-    
-    if counter.last_date != today:
-        counter.last_id = 1
-        counter.last_date = today
-    else:
-        counter.last_id += 1
-    
-    db.session.commit()
-    return counter.last_id
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/debug')
+def debug():
+    try:
+        count = UploadedFile.query.count()
+        counter = FileCounter.query.first()
+        db_url = app.config['SQLALCHEMY_DATABASE_URI']
+        return f"Files in DB: {count}<br>Counter: {counter.last_id if counter else 'None'}<br>DB URL: {db_url[:50]}..."
+    except Exception as e:
+        return f"Debug error: {e}"
 
 @app.route('/upload-csv', methods=['POST'])
 def upload_csv():
@@ -113,9 +132,13 @@ def upload_csv():
     file_hash = hashlib.sha256(csv_content.encode()).hexdigest()
     
     # Check for duplicate
-    existing_file = UploadedFile.query.filter_by(file_hash=file_hash).first()
-    if existing_file:
-        return f"File already exists: <a href='/download/reconverted/{existing_file.raw_filename}'>{existing_file.raw_filename}</a>"
+    try:
+        existing_file = UploadedFile.query.filter_by(file_hash=file_hash).first()
+        if existing_file:
+            return f"File already exists: <a href='/download/reconverted/{existing_file.raw_filename}'>{existing_file.raw_filename}</a>"
+    except Exception as e:
+        print(f"Duplicate check error: {e}")
+        # Continue without duplicate check
     
     # Parse CSV
     reader = csv.reader(csv_content.splitlines())
@@ -232,16 +255,22 @@ def upload_csv():
     raw_content = '\n'.join(output_lines)
     
     # Save to database
-    uploaded_file = UploadedFile(
-        file_id=file_id,
-        original_filename=file.filename,
-        csv_content=csv_content,
-        raw_content=raw_content,
-        raw_filename=filename,
-        file_hash=file_hash
-    )
-    db.session.add(uploaded_file)
-    db.session.commit()
+    try:
+        uploaded_file = UploadedFile(
+            file_id=file_id,
+            original_filename=file.filename,
+            csv_content=csv_content,
+            raw_content=raw_content,
+            raw_filename=filename,
+            file_hash=file_hash
+        )
+        db.session.add(uploaded_file)
+        db.session.commit()
+        print(f"Database save successful: {filename}")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Database error: {e}")
+        return f"Database error: {e}"
     
     # Also save to filesystem for backward compatibility
     csv_path = os.path.join(CSV_FOLDER, f"{file_id}.csv")
