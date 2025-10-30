@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>NSDL File Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      function switchTab(tab) {
+        document.getElementById("tab-raw").classList.add("hidden");
+        document.getElementById("tab-csv").classList.add("hidden");
+        document.getElementById("btn-raw").classList.remove("bg-blue-600");
+        document.getElementById("btn-csv").classList.remove("bg-blue-600");
+        document.getElementById("btn-raw").classList.add("bg-gray-300");
+        document.getElementById("btn-csv").classList.add("bg-gray-300");
+
+        document.getElementById(`tab-${tab}`).classList.remove("hidden");
+        document.getElementById(`btn-${tab}`).classList.remove("bg-gray-300");
+        document.getElementById(`btn-${tab}`).classList.add("bg-blue-600");
+      }
+
+      // Default to CSV tab on load
+      window.onload = function () {
+        switchTab("csv");
+      };
+    </script>
+  </head>
+  <body class="bg-gray-100 font-sans text-gray-800 p-6">
+    <div class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow">
+      <!-- NSDL Tag -->
+      <div
+        class="text-center text-sm font-semibold text-gray-500 mb-1 uppercase tracking-wide"
+      >
+        NSDL
+      </div>
+
+      <h1 class="text-2xl font-bold text-center mb-6">
+        📄 CSV ⇄ File Converter
+      </h1>
+
+      <!-- Tab Buttons -->
+      <div class="flex justify-center mb-4">
+        <button
+          id="btn-csv"
+          onclick="switchTab('csv')"
+          class="px-4 py-2 bg-blue-600 text-white font-medium rounded-l"
+        >
+          Upload CSV File
+        </button>
+      
+      </div>
+
+      <!-- CSV File Upload Tab -->
+      <div id="tab-csv">
+        <form
+          action="/upload-csv"
+          method="post"
+          enctype="multipart/form-data"
+          class="space-y-4"
+        >
+          <label class="block">
+            <span class="text-sm font-medium">Select CSV file:</span>
+            <input
+              type="file"
+              name="csv_file"
+              accept=".csv"
+              required
+              class="mt-1 block w-full border border-gray-300 rounded px-3 py-2"
+            />
+          </label>
+
+          <button
+            type="submit"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
+          >
+            Convert to Raw File
+          </button>
+        </form>
+      </div>
+
+      <!-- View All Files Link -->
+      <div class="mt-6 text-center">
+        <a href="/files" class="text-blue-600 hover:text-blue-800 underline">
+          📁 View All Files
+        </a>
+      </div>
+   
+    </div>
+  </body>
+</html>

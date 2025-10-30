@@ -1,0 +1,5 @@
+Flask
+python-dateutil
+psycopg2-binary
+SQLAlchemy
+Flask-SQLAlchemy
