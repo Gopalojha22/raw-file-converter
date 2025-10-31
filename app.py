@@ -284,7 +284,7 @@ def upload_csv():
     reconvert_path = os.path.join(RECONVERTED_FOLDER, filename)
 
     # RAW header: 076500DPADM <row_count><counter><current_date>
-    current_date = row_dict_first["Dt"]
+    current_date = parser.parse(row_dict_first["Dt"], dayfirst=True).strftime('%d%m%Y')
     raw_header = f"{RAW_HEADER_PREFIX} {row_count}{file_id}{current_date}"
     output_lines = [raw_header]
 
