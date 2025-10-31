@@ -257,7 +257,7 @@ def upload_csv():
         return "Missing Dt in first row."
 
     try:
-        file_date = parser.parse(row_dict_first["Dt"], dayfirst=True).strftime('%d%m%Y')
+        file_date = parser.parse(row_dict_first["Dt"], dayfirst=True)
     except Exception:
         return f"Invalid Dt format in first row: {row_dict_first['Dt']}"
 
@@ -266,7 +266,7 @@ def upload_csv():
         row_dict = dict(zip(headers, row))
         if "Dt" in row_dict and row_dict["Dt"]:
             try:
-                dt_val = parser.parse(row_dict["Dt"], dayfirst=True).strftime('%d%m%Y')
+                dt_val = parser.parse(row_dict["Dt"], dayfirst=True)
                 if dt_val != file_date:
                     return f"Mismatch: Dt {dt_val} does not match file date {file_date}"
             except Exception:
