@@ -257,7 +257,7 @@ def upload_csv():
         return "Missing Dt in first row."
 
     try:
-        file_date = parser.parse(row_dict_first["Dt"], dayfirst=True)
+        file_date = parser.parse(row_dict_first["Dt"], dayfirst=True).strftime('%d%m%Y')
     except Exception:
         return f"Invalid Dt format in first row: {row_dict_first['Dt']}"
 
@@ -266,7 +266,7 @@ def upload_csv():
         row_dict = dict(zip(headers, row))
         if "Dt" in row_dict and row_dict["Dt"]:
             try:
-                dt_val = parser.parse(row_dict["Dt"], dayfirst=True)
+                dt_val = parser.parse(row_dict["Dt"], dayfirst=True).strftime('%d%m%Y')
                 if dt_val != file_date:
                     return f"Mismatch: Dt {dt_val} does not match file date {file_date}"
             except Exception:
@@ -284,7 +284,7 @@ def upload_csv():
     reconvert_path = os.path.join(RECONVERTED_FOLDER, filename)
 
     # RAW header: 076500DPADM <row_count><counter><current_date>
-    current_date = datetime.now().strftime('%d%m%Y')
+    current_date = row_dict_first["Dt"]
     raw_header = f"{RAW_HEADER_PREFIX} {row_count}{file_id}{current_date}"
     output_lines = [raw_header]
 
