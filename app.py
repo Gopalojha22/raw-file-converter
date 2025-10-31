@@ -57,11 +57,7 @@ class FileCounter(db.Model):
     last_id = db.Column(db.Integer, default=1)
     last_date = db.Column(db.String(10))
 
-class FileHash(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    file_hash = db.Column(db.String(64), unique=True)
-    filename = db.Column(db.String(255))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+# FileHash model removed - no duplicate checking needed
 
 class UploadedFile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -242,13 +238,7 @@ def upload_csv():
     file_hash = hashlib.sha256(csv_binary).hexdigest()
     csv_content = csv_binary.decode('utf-8')  # For processing only
     
-    # Check for duplicate (skip if database unavailable)
-    try:
-        existing_file = UploadedFile.query.filter_by(file_hash=file_hash).first()
-        if existing_file:
-            return f"File already exists: <a href='/download/reconverted/{existing_file.raw_filename}'>{existing_file.raw_filename}</a>"
-    except Exception:
-        pass  # Continue without duplicate check
+    # No duplicate checking - always process every upload
     
     # Parse CSV
     reader = csv.reader(csv_content.splitlines())
@@ -365,7 +355,7 @@ def upload_csv():
     output_lines.append("")  # trailing newline
     raw_content = '\n'.join(output_lines)
     
-    # Save to database (optional)
+    # Save to database for tracking only
     try:
         uploaded_file = UploadedFile(
             file_id=file_id,
@@ -377,9 +367,10 @@ def upload_csv():
         )
         db.session.add(uploaded_file)
         db.session.commit()
+        print(f"✅ Tracked in database: {filename}")
     except Exception as e:
-        print(f"Database save failed: {e}")
-        # Continue with filesystem only
+        print(f"❌ Database tracking failed: {e}")
+        # Continue - database is only for tracking, not required
     
     # Also save to filesystem for backward compatibility
     csv_path = os.path.join(CSV_FOLDER, f"{file_id}.csv")
