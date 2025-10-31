@@ -94,23 +94,20 @@ threading.Thread(target=init_db, daemon=True).start()
 
 def get_next_file_id():
     """
-    Returns an incrementing integer starting from 1.
-    Fallback to file-based counter if database fails.
+    Returns an incrementing integer that always increases.
+    Never resets, always unique.
     """
     try:
-        today = datetime.now().strftime('%Y-%m-%d')
         counter = FileCounter.query.first()
         if not counter:
-            counter = FileCounter(last_id=1, last_date=today)
+            counter = FileCounter(last_id=1, last_date=datetime.now().strftime('%Y-%m-%d'))
             db.session.add(counter)
             db.session.commit()
             return 1
         
-        if counter.last_date != today:
-            counter.last_id = 1
-            counter.last_date = today
-        else:
-            counter.last_id += 1
+        # Always increment, never reset
+        counter.last_id += 1
+        counter.last_date = datetime.now().strftime('%Y-%m-%d')
         
         db.session.commit()
         return counter.last_id
@@ -119,10 +116,9 @@ def get_next_file_id():
         return get_file_counter()
 
 def get_file_counter():
-    """Fallback file-based counter"""
-    today = datetime.now().strftime('%Y-%m-%d')
+    """Fallback file-based counter - always increments"""
     if not os.path.exists(COUNTER_FILE):
-        data = {"last_id": 1, "last_date": today}
+        data = {"last_id": 1}
         with open(COUNTER_FILE, 'w') as f:
             json.dump(data, f)
         return 1
@@ -130,13 +126,10 @@ def get_file_counter():
     with open(COUNTER_FILE, 'r') as f:
         data = json.load(f)
     
-    if data.get("last_date") != today:
-        last_id = 1
-        data["last_date"] = today
-    else:
-        last_id = data.get("last_id", 0) + 1
-    
+    # Always increment, never reset
+    last_id = data.get("last_id", 0) + 1
     data["last_id"] = last_id
+    
     with open(COUNTER_FILE, 'w') as f:
         json.dump(data, f)
     
@@ -293,15 +286,16 @@ def upload_csv():
     file_id_int = get_next_file_id()
     file_id = str(file_id_int).zfill(5)
     
-    # --- Naming and header per requirements ---
-    todays_date = datetime.now().strftime('%d%m%Y')
+    # --- Use date from CSV file for filename ---
+    csv_date = file_date  # Already extracted from CSV above
 
-    # Filename: 18<Bnfcry>.<todaysdate>.<counter>
-    filename = f"18{Bnfcry}.{todays_date}.{file_id}"
+    # Filename: 18<Bnfcry>.<csv_date>.<counter>
+    filename = f"18{Bnfcry}.{csv_date}.{file_id}"
     reconvert_path = os.path.join(RECONVERTED_FOLDER, filename)
 
-    # RAW header: 076500DPADM <row_count><counter><todays_date>
-    raw_header = f"{RAW_HEADER_PREFIX} {row_count}{file_id}{todays_date}"
+    # RAW header: 076500DPADM <row_count><counter><current_date>
+    current_date = datetime.now().strftime('%d%m%Y')
+    raw_header = f"{RAW_HEADER_PREFIX} {row_count}{file_id}{current_date}"
     output_lines = [raw_header]
 
     # Build RAW body
